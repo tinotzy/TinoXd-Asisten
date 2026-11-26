@@ -23,27 +23,59 @@ import java.net.URL
 import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
+
+    private val floatingAction = mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        floatingAction.value =
+            intent?.getStringExtra("TINXD_ACTION")
+
         setContent {
             TinoXdApp(
-                activity = this
+                activity = this,
+                requestedAction = floatingAction.value
             )
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        floatingAction.value =
+            intent.getStringExtra("TINXD_ACTION")
     }
 }
 
 @Composable
-fun TinoXdApp(activity: Activity) {
+fun TinoXdApp(
+    activity: Activity,
+    requestedAction: String? = null
+) {
     val purple = Color(0xFF9B7BFF)
     val dark = Color(0xFF10111A)
 
     var question by remember { mutableStateOf("") }
     var userAnswer by remember { mutableStateOf("") }
     var answer by remember { mutableStateOf("") }
-    var selectedMode by remember { mutableStateOf("solve") }
+
+    var selectedMode by remember {
+        mutableStateOf("solve")
+    }
+
     var loading by remember { mutableStateOf(false) }
     var history by remember { mutableStateOf("") }
+
+    LaunchedEffect(requestedAction) {
+        selectedMode = when (requestedAction) {
+            "SOLVER" -> "solve"
+            "VERIFY" -> "verify"
+            "AUTO_ANSWER" -> "auto"
+            "HOME" -> "solve"
+            else -> selectedMode
+        }
+    }
 
     val scroll = rememberScrollState()
 
@@ -74,7 +106,10 @@ fun TinoXdApp(activity: Activity) {
             onClick = {
                 if (Settings.canDrawOverlays(activity)) {
                     activity.startService(
-                        Intent(activity, FloatingWidgetService::class.java)
+                        Intent(
+                            activity,
+                            FloatingWidgetService::class.java
+                        )
                     )
                 } else {
                     val intent = Intent(
@@ -105,11 +140,16 @@ fun TinoXdApp(activity: Activity) {
 
         modes.forEach { (label, mode) ->
             Button(
-                onClick = { selectedMode = mode },
+                onClick = {
+                    selectedMode = mode
+                    answer = ""
+                },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selectedMode == mode)
-                        purple else Color(0xFF29243A)
+                    containerColor =
+                        if (selectedMode == mode)
+                            purple
+                        else Color(0xFF29243A)
                 )
             ) {
                 Text(label)
@@ -117,6 +157,10 @@ fun TinoXdApp(activity: Activity) {
         }
 
         Spacer(Modifier.height(15.dp))
+
+        Text("MODE AKTIF: ${selectedMode.uppercase()}", color = purple)
+
+        Spacer(Modifier.height(12.dp))
 
         Text("PERTANYAAN / MATERI", color = Color.White)
 
@@ -132,6 +176,7 @@ fun TinoXdApp(activity: Activity) {
 
         if (selectedMode == "verify") {
             Spacer(Modifier.height(12.dp))
+
             Text("JAWABAN KAMU", color = Color.White)
 
             OutlinedTextField(
@@ -177,22 +222,35 @@ fun TinoXdApp(activity: Activity) {
             )
         ) {
             Text(
-                if (loading) "MEMPROSES..." else "KIRIM KE TINOXD AI"
+                if (loading)
+                    "MEMPROSES..."
+                else
+                    "KIRIM KE TINOXD AI"
             )
         }
 
         Spacer(Modifier.height(22.dp))
 
-        Text("HASIL JAWABAN", color = purple, fontSize = 17.sp)
+        Text(
+            "HASIL JAWABAN",
+            color = purple,
+            fontSize = 17.sp
+        )
 
         Text(
-            answer.ifBlank { "Jawaban AI akan muncul di sini." },
+            answer.ifBlank {
+                "Jawaban AI akan muncul di sini."
+            },
             color = Color.White
         )
 
         Spacer(Modifier.height(20.dp))
 
-        Text("RIWAYAT SESI INI", color = purple, fontSize = 17.sp)
+        Text(
+            "RIWAYAT SESI INI",
+            color = purple,
+            fontSize = 17.sp
+        )
 
         Text(
             history.ifBlank { "Belum ada riwayat." },
@@ -231,7 +289,9 @@ fun requestAI(
         }
 
         connection.outputStream.use {
-            it.write(body.toString().toByteArray(Charsets.UTF_8))
+            it.write(
+                body.toString().toByteArray(Charsets.UTF_8)
+            )
         }
 
         val code = connection.responseCode
@@ -249,13 +309,22 @@ fun requestAI(
         val json = JSONObject(responseText)
 
         if (code in 200..299) {
-            json.optString("answer", "AI tidak memberikan jawaban.")
+            json.optString(
+                "answer",
+                "AI tidak memberikan jawaban."
+            )
         } else {
             "Server error ($code): " +
-                json.optString("error", "Terjadi kesalahan.")
+                json.optString(
+                    "error",
+                    "Terjadi kesalahan."
+                )
         }
+
     } catch (e: Exception) {
-        "Gagal terhubung: ${e.message ?: "Periksa koneksi internet."}"
+        "Gagal terhubung: ${
+            e.message ?: "Periksa koneksi internet."
+        }"
     } finally {
         connection?.disconnect()
     }
