@@ -1,4 +1,3 @@
-
 package com.tinoxd.asisten
 
 import android.os.Bundle
@@ -142,7 +141,7 @@ fun TinoXdApp() {
                     Executors.newSingleThreadExecutor().execute {
                         val result = requestAI(q, mode, a)
 
-                        android.os.Handler(mainLooper).post {
+                        android.os.Handler(android.os.Looper.getMainLooper()).post {
                             answer = result
                             loading = false
                             history = "$history\n\n$q\n$result"
