@@ -1,3 +1,4 @@
+
 package com.tinoxd.asisten
 
 import android.graphics.PixelFormat
@@ -23,50 +24,34 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 class MainActivity : ComponentActivity() {
-
     private var running by mutableStateOf(false)
     private var overlayAllowed by mutableStateOf(false)
     private var popup: LinearLayout? = null
+    private var statusText: TextView? = null
+    private var toggleButton: TextView? = null
+    private var assistantOn = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         overlayAllowed = Settings.canDrawOverlays(this)
 
         setContent {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF10111A))
-                    .padding(22.dp),
+                Modifier.fillMaxSize().background(Color(0xFF10111A)).padding(22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    "TinoXd Asisten",
-                    color = Color.White,
-                    fontSize = 30.sp
-                )
-
-                Text(
-                    "SMART LEARNING ASSISTANT",
-                    color = Color(0xFF9B7BFF),
-                    fontSize = 12.sp
-                )
+                Text("TinoXd Asisten", color = Color.White, fontSize = 30.sp)
+                Text("SMART LEARNING ASSISTANT", color = Color(0xFF9B7BFF))
 
                 Spacer(Modifier.height(30.dp))
 
-                Button(
-                    onClick = {
-                        startActivity(
-                            Intent(
-                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                Uri.parse("package:$packageName")
-                            )
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Button(onClick = {
+                    startActivity(Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:$packageName")
+                    ))
+                }, modifier = Modifier.fillMaxWidth()) {
                     Text("IZINKAN POP-UP")
                 }
 
@@ -76,30 +61,18 @@ class MainActivity : ComponentActivity() {
                     onClick = { startPopup() },
                     enabled = overlayAllowed && !running,
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("MULAI ASISTEN")
-                }
+                ) { Text("MULAI ASISTEN") }
 
                 Spacer(Modifier.height(12.dp))
 
                 Button(
                     onClick = { stopPopup() },
                     enabled = running,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFB3261E)
-                    )
-                ) {
-                    Text("BERHENTI")
-                }
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("TUTUP ASISTEN") }
 
                 Spacer(Modifier.height(18.dp))
-
-                Text(
-                    if (running) "Asisten sedang aktif"
-                    else "Asisten belum aktif",
-                    color = Color.White
-                )
+                Text(if (running) "Pop-up aktif" else "Pop-up mati", color = Color.White)
             }
         }
     }
@@ -113,8 +86,8 @@ class MainActivity : ComponentActivity() {
         if (!Settings.canDrawOverlays(this) || popup != null) return
 
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
-        val density = resources.displayMetrics.density
-        fun dp(n: Int) = (n * density).toInt()
+        val d = resources.displayMetrics.density
+        fun dp(n: Int) = (n * d).toInt()
 
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -131,43 +104,51 @@ class MainActivity : ComponentActivity() {
             text = "TinoXd Asisten"
             textSize = 16f
             setTextColor(-1)
-            setPadding(dp(5), dp(10), dp(5), dp(10))
         }
 
-        fun control(label: String): TextView {
-            return TextView(this).apply {
-                text = label
-                textSize = 23f
-                gravity = Gravity.CENTER
-                setTextColor(-1)
-            }
+        fun control(s: String) = TextView(this).apply {
+            text = s
+            textSize = 23f
+            gravity = Gravity.CENTER
+            setTextColor(-1)
         }
 
         val minimize = control("−")
         val resize = control("↗")
         val close = control("×")
 
-        header.addView(
-            title,
-            LinearLayout.LayoutParams(0, dp(45), 1f)
-        )
+        header.addView(title, LinearLayout.LayoutParams(0, dp(45), 1f))
         header.addView(minimize, LinearLayout.LayoutParams(dp(38), dp(45)))
         header.addView(resize, LinearLayout.LayoutParams(dp(38), dp(45)))
         header.addView(close, LinearLayout.LayoutParams(dp(32), dp(45)))
+
+        val status = TextView(this).apply {
+            textSize = 13f
+            setPadding(dp(8), dp(10), dp(8), dp(10))
+            setTextColor(-1)
+        }
+        statusText = status
+
+        val toggle = TextView(this).apply {
+            textSize = 15f
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(14), dp(12), dp(14))
+            setTextColor(-1)
+            setBackgroundColor(0xFF287A49.toInt())
+        }
+        toggleButton = toggle
 
         val menu = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
 
-        val features = listOf(
+        listOf(
             "AI Pemecah Soal",
             "Baca Layar (OCR)",
             "Verifikasi Jawaban",
             "Mode Belajar",
             "Riwayat Belajar"
-        )
-
-        features.forEach { feature ->
+        ).forEach { feature ->
             val item = TextView(this).apply {
                 text = feature
                 textSize = 14f
@@ -176,7 +157,7 @@ class MainActivity : ComponentActivity() {
                 setOnClickListener {
                     Toast.makeText(
                         this@MainActivity,
-                        "$feature belum aktif. Fitur akan disambungkan bertahap.",
+                        "$feature belum disambungkan",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -185,33 +166,45 @@ class MainActivity : ComponentActivity() {
         }
 
         panel.addView(header)
+        panel.addView(status)
+        panel.addView(toggle)
         panel.addView(menu)
+
+        fun updateStatus() {
+            status.text = if (assistantOn) "STATUS: ON" else "STATUS: OFF"
+            toggle.text = if (assistantOn) "MATIKAN ASISTEN" else "AKTIFKAN ASISTEN"
+            toggle.setBackgroundColor(
+                if (assistantOn) 0xFFB3261E.toInt() else 0xFF287A49.toInt()
+            )
+        }
+
+        toggle.setOnClickListener {
+            assistantOn = !assistantOn
+            updateStatus()
+        }
 
         var expanded = true
         var large = false
 
         minimize.setOnClickListener {
             expanded = !expanded
-            menu.visibility =
-                if (expanded) android.view.View.VISIBLE
-                else android.view.View.GONE
+            status.visibility = if (expanded) android.view.View.VISIBLE else android.view.View.GONE
+            toggle.visibility = if (expanded) android.view.View.VISIBLE else android.view.View.GONE
+            menu.visibility = if (expanded) android.view.View.VISIBLE else android.view.View.GONE
             minimize.text = if (expanded) "−" else "+"
         }
 
         resize.setOnClickListener {
             large = !large
-            val params = panel.layoutParams as WindowManager.LayoutParams
-            params.width = dp(if (large) 330 else 260)
-            wm.updateViewLayout(panel, params)
+            val p = panel.layoutParams as WindowManager.LayoutParams
+            p.width = dp(if (large) 330 else 260)
+            wm.updateViewLayout(panel, p)
         }
 
-        close.setOnClickListener {
-            stopPopup()
-        }
+        close.setOnClickListener { stopPopup() }
 
         val params = WindowManager.LayoutParams(
-            dp(260),
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            dp(260), WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
@@ -223,18 +216,259 @@ class MainActivity : ComponentActivity() {
 
         wm.addView(panel, params)
         popup = panel
+        assistantOn = false
+        updateStatus()
         running = true
     }
 
     private fun stopPopup() {
         popup?.let {
             val wm = getSystemService(WINDOW_SERVICE) as WindowManager
-            try {
-                wm.removeView(it)
-            } catch (_: Exception) {
-            }
+            try { wm.removeView(it) } catch (_: Exception) {}
         }
         popup = null
+        statusText = null
+        toggleButton = null
+        assistantOn = false
+        running = false
+    }
+
+    override fun onDestroy() {
+        stopPopup()
+        super.onDestroy()
+    }
+}
+package com.tinoxd.asisten
+
+import android.graphics.PixelFormat
+import android.os.Bundle
+import android.provider.Settings
+import android.content.Intent
+import android.net.Uri
+import android.view.Gravity
+import android.view.WindowManager
+import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+
+class MainActivity : ComponentActivity() {
+    private var running by mutableStateOf(false)
+    private var overlayAllowed by mutableStateOf(false)
+    private var popup: LinearLayout? = null
+    private var statusText: TextView? = null
+    private var toggleButton: TextView? = null
+    private var assistantOn = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        overlayAllowed = Settings.canDrawOverlays(this)
+
+        setContent {
+            Column(
+                Modifier.fillMaxSize().background(Color(0xFF10111A)).padding(22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text("TinoXd Asisten", color = Color.White, fontSize = 30.sp)
+                Text("SMART LEARNING ASSISTANT", color = Color(0xFF9B7BFF))
+
+                Spacer(Modifier.height(30.dp))
+
+                Button(onClick = {
+                    startActivity(Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:$packageName")
+                    ))
+                }, modifier = Modifier.fillMaxWidth()) {
+                    Text("IZINKAN POP-UP")
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                Button(
+                    onClick = { startPopup() },
+                    enabled = overlayAllowed && !running,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("MULAI ASISTEN") }
+
+                Spacer(Modifier.height(12.dp))
+
+                Button(
+                    onClick = { stopPopup() },
+                    enabled = running,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("TUTUP ASISTEN") }
+
+                Spacer(Modifier.height(18.dp))
+                Text(if (running) "Pop-up aktif" else "Pop-up mati", color = Color.White)
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        overlayAllowed = Settings.canDrawOverlays(this)
+    }
+
+    private fun startPopup() {
+        if (!Settings.canDrawOverlays(this) || popup != null) return
+
+        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        val d = resources.displayMetrics.density
+        fun dp(n: Int) = (n * d).toInt()
+
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(8), dp(12), dp(12))
+            setBackgroundColor(0xFF211B38.toInt())
+        }
+
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val title = TextView(this).apply {
+            text = "TinoXd Asisten"
+            textSize = 16f
+            setTextColor(-1)
+        }
+
+        fun control(s: String) = TextView(this).apply {
+            text = s
+            textSize = 23f
+            gravity = Gravity.CENTER
+            setTextColor(-1)
+        }
+
+        val minimize = control("−")
+        val resize = control("↗")
+        val close = control("×")
+
+        header.addView(title, LinearLayout.LayoutParams(0, dp(45), 1f))
+        header.addView(minimize, LinearLayout.LayoutParams(dp(38), dp(45)))
+        header.addView(resize, LinearLayout.LayoutParams(dp(38), dp(45)))
+        header.addView(close, LinearLayout.LayoutParams(dp(32), dp(45)))
+
+        val status = TextView(this).apply {
+            textSize = 13f
+            setPadding(dp(8), dp(10), dp(8), dp(10))
+            setTextColor(-1)
+        }
+        statusText = status
+
+        val toggle = TextView(this).apply {
+            textSize = 15f
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(14), dp(12), dp(14))
+            setTextColor(-1)
+            setBackgroundColor(0xFF287A49.toInt())
+        }
+        toggleButton = toggle
+
+        val menu = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        listOf(
+            "AI Pemecah Soal",
+            "Baca Layar (OCR)",
+            "Verifikasi Jawaban",
+            "Mode Belajar",
+            "Riwayat Belajar"
+        ).forEach { feature ->
+            val item = TextView(this).apply {
+                text = feature
+                textSize = 14f
+                setTextColor(-1)
+                setPadding(dp(12), dp(13), dp(12), dp(13))
+                setOnClickListener {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "$feature belum disambungkan",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+            menu.addView(item)
+        }
+
+        panel.addView(header)
+        panel.addView(status)
+        panel.addView(toggle)
+        panel.addView(menu)
+
+        fun updateStatus() {
+            status.text = if (assistantOn) "STATUS: ON" else "STATUS: OFF"
+            toggle.text = if (assistantOn) "MATIKAN ASISTEN" else "AKTIFKAN ASISTEN"
+            toggle.setBackgroundColor(
+                if (assistantOn) 0xFFB3261E.toInt() else 0xFF287A49.toInt()
+            )
+        }
+
+        toggle.setOnClickListener {
+            assistantOn = !assistantOn
+            updateStatus()
+        }
+
+        var expanded = true
+        var large = false
+
+        minimize.setOnClickListener {
+            expanded = !expanded
+            status.visibility = if (expanded) android.view.View.VISIBLE else android.view.View.GONE
+            toggle.visibility = if (expanded) android.view.View.VISIBLE else android.view.View.GONE
+            menu.visibility = if (expanded) android.view.View.VISIBLE else android.view.View.GONE
+            minimize.text = if (expanded) "−" else "+"
+        }
+
+        resize.setOnClickListener {
+            large = !large
+            val p = panel.layoutParams as WindowManager.LayoutParams
+            p.width = dp(if (large) 330 else 260)
+            wm.updateViewLayout(panel, p)
+        }
+
+        close.setOnClickListener { stopPopup() }
+
+        val params = WindowManager.LayoutParams(
+            dp(260), WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.END
+            x = dp(12)
+            y = dp(120)
+        }
+
+        wm.addView(panel, params)
+        popup = panel
+        assistantOn = false
+        updateStatus()
+        running = true
+    }
+
+    private fun stopPopup() {
+        popup?.let {
+            val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+            try { wm.removeView(it) } catch (_: Exception) {}
+        }
+        popup = null
+        statusText = null
+        toggleButton = null
+        assistantOn = false
         running = false
     }
 
