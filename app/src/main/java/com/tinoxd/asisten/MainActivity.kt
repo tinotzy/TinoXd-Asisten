@@ -1,6 +1,10 @@
 package com.tinoxd.asisten
 
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -19,18 +23,18 @@ import java.net.URL
 import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContent {
-            TinoXdApp()
+            TinoXdApp(
+                activity = this
+            )
         }
     }
 }
 
 @Composable
-fun TinoXdApp() {
+fun TinoXdApp(activity: Activity) {
     val purple = Color(0xFF9B7BFF)
     val dark = Color(0xFF10111A)
 
@@ -62,17 +66,41 @@ fun TinoXdApp() {
             fontSize = 13.sp
         )
 
+        Spacer(Modifier.height(20.dp))
+
+        Text("FLOATING ASSISTANT", color = purple)
+
+        Button(
+            onClick = {
+                if (Settings.canDrawOverlays(activity)) {
+                    activity.startService(
+                        Intent(activity, FloatingWidgetService::class.java)
+                    )
+                } else {
+                    val intent = Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:${activity.packageName}")
+                    )
+                    activity.startActivity(intent)
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = purple
+            )
+        ) {
+            Text("AKTIFKAN POP-UP MENGAMBANG")
+        }
+
         Spacer(Modifier.height(22.dp))
 
         Text("PILIH FITUR", color = purple)
-
-        Spacer(Modifier.height(10.dp))
 
         val modes = listOf(
             "AI Pemecah Soal" to "solve",
             "Verifikasi Jawaban" to "verify",
             "Mode Belajar" to "learn",
-            "Jawab Otomatis" to "auto"
+            "Jawab Otomatis (Latihan)" to "auto"
         )
 
         modes.forEach { (label, mode) ->
@@ -86,7 +114,6 @@ fun TinoXdApp() {
             ) {
                 Text(label)
             }
-            Spacer(Modifier.height(6.dp))
         }
 
         Spacer(Modifier.height(15.dp))
@@ -97,14 +124,10 @@ fun TinoXdApp() {
             value = question,
             onValueChange = { question = it },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Tulis soal atau materi di sini...") },
-            minLines = 3,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                focusedBorderColor = purple,
-                unfocusedBorderColor = Color.Gray
-            )
+            placeholder = {
+                Text("Tulis soal atau materi latihan...")
+            },
+            minLines = 3
         )
 
         if (selectedMode == "verify") {
@@ -115,14 +138,10 @@ fun TinoXdApp() {
                 value = userAnswer,
                 onValueChange = { userAnswer = it },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Masukkan jawaban yang ingin diperiksa...") },
-                minLines = 2,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = purple,
-                    unfocusedBorderColor = Color.Gray
-                )
+                placeholder = {
+                    Text("Masukkan jawaban untuk diperiksa...")
+                },
+                minLines = 2
             )
         }
 
@@ -141,7 +160,9 @@ fun TinoXdApp() {
                     Executors.newSingleThreadExecutor().execute {
                         val result = requestAI(q, mode, a)
 
-                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        android.os.Handler(
+                            android.os.Looper.getMainLooper()
+                        ).post {
                             answer = result
                             loading = false
                             history = "$history\n\n$q\n$result"
@@ -155,26 +176,23 @@ fun TinoXdApp() {
                 containerColor = purple
             )
         ) {
-            Text(if (loading) "SEDANG MEMPROSES..." else "KIRIM KE TINOXD AI")
+            Text(
+                if (loading) "MEMPROSES..." else "KIRIM KE TINOXD AI"
+            )
         }
 
         Spacer(Modifier.height(22.dp))
 
         Text("HASIL JAWABAN", color = purple, fontSize = 17.sp)
 
-        Spacer(Modifier.height(8.dp))
-
         Text(
             answer.ifBlank { "Jawaban AI akan muncul di sini." },
-            color = Color.White,
-            fontSize = 15.sp
+            color = Color.White
         )
 
-        Spacer(Modifier.height(25.dp))
+        Spacer(Modifier.height(20.dp))
 
         Text("RIWAYAT SESI INI", color = purple, fontSize = 17.sp)
-
-        Spacer(Modifier.height(8.dp))
 
         Text(
             history.ifBlank { "Belum ada riwayat." },
@@ -192,14 +210,18 @@ fun requestAI(
     var connection: HttpURLConnection? = null
 
     return try {
-        connection = (URL(
-            "https://tinoxd-asisten.vercel.app/api/chat"
-        ).openConnection() as HttpURLConnection).apply {
+        connection = (
+            URL("https://tinoxd-asisten.vercel.app/api/chat")
+                .openConnection() as HttpURLConnection
+        ).apply {
             requestMethod = "POST"
             connectTimeout = 20000
             readTimeout = 60000
             doOutput = true
-            setRequestProperty("Content-Type", "application/json")
+            setRequestProperty(
+                "Content-Type",
+                "application/json"
+            )
         }
 
         val body = JSONObject().apply {
@@ -232,7 +254,6 @@ fun requestAI(
             "Server error ($code): " +
                 json.optString("error", "Terjadi kesalahan.")
         }
-
     } catch (e: Exception) {
         "Gagal terhubung: ${e.message ?: "Periksa koneksi internet."}"
     } finally {
